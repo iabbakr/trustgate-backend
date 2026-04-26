@@ -23,13 +23,6 @@ dist/
 build/
 
 
-# Coverage directory (testing)
-coverage/
-
-# Build output
-dist/
-build/
-
 # Environment variables
 .env
 .env.local
