@@ -11,7 +11,7 @@ const schemas = require("../utils/schemas");
 // Called after Firebase Auth registration — creates Firestore profile
 router.post("/register", authLimiter, requireAuth, validate(schemas.register), authController.register);
 
-// GET /api/v1/auth/me
+// GET /api/v1/auth/m
 router.get("/me", requireAuth, authController.me);
 
 // GET /api/v1/auth/referral/:code
