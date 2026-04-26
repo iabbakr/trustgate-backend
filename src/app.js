@@ -22,6 +22,7 @@ const uploadRoutes = require("./routes/upload.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const adminRoutes = require("./routes/admin.routes");
+const otpRoutes = require("./routes/otp.routes");
 
 // Initialize background jobs
 require("./jobs");
@@ -78,6 +79,7 @@ v1.use("/upload", uploadRoutes);
 v1.use("/payments", paymentRoutes);
 v1.use("/notifications", notificationRoutes);
 v1.use("/admin", adminRoutes);
+v1.use("/otp", otpRoutes);
 
 app.use("/api/v1", v1);
 

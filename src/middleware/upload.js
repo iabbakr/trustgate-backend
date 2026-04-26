@@ -46,4 +46,19 @@ const receiptUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 }).single("receipt");
 
-module.exports = { avatarUpload, postImageUpload, documentUpload, receiptUpload };
+// Video uploads for chat — 50MB max, 60 seconds enforced server-side
+const videoFilter = (req, file, cb) => {
+  const allowed = ["video/mp4", "video/quicktime", "video/x-m4v", "video/webm"];
+  if (!allowed.includes(file.mimetype)) {
+    return cb(new Error("Only MP4, MOV, and WebM videos are allowed"), false);
+  }
+  cb(null, true);
+};
+
+const videoUpload = multer({
+  storage,
+  fileFilter: videoFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+}).single("video");
+
+module.exports = { avatarUpload, postImageUpload, documentUpload, receiptUpload, videoUpload };
