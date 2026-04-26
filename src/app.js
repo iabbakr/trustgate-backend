@@ -10,7 +10,7 @@ const { globalLimiter } = require("./middleware/rateLimiter");
 const { errorHandler, notFound } = require("./middleware/errorHandler");
 
 // Route imports
-const authRoutes = require("./routes/auth.routes");
+const authRoutes = require("./routes/auth.route");
 const userRoutes = require("./routes/user.routes");
 const kycRoutes = require("./routes/kyc.routes");
 const deviceRoutes = require("./routes/device.routes");
