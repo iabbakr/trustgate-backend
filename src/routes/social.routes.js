@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const socialController = require("../controllers/social.controller");
+const socialController = require("../controller/social.controller");
 const { requireAuth } = require("../middleware/auth");
 
 // POST /api/v1/social/follow/:uid

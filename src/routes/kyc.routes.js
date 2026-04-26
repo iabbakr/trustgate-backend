@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const kycController = require("../controllers/kyc.controller");
+const kycController = require("../controller/kyc.controller");
 const { requireAuth } = require("../middleware/auth");
 const { kycLimiter } = require("../middleware/rateLimiter");
 const validate = require("../middleware/validate");

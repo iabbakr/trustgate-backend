@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const txController = require("../controllers/transaction.controller");
+const txController = require("../controller/transaction.controller");
 const { requireAuth } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const schemas = require("../utils/schemas");
