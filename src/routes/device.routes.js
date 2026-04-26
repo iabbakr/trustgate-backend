@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const deviceController = require("../controller/device.controller");
+const deviceController = require("../controllers/device.controller");
 const { requireAuth } = require("../middleware/auth");
 const { deviceCheckLimiter, uploadLimiter } = require("../middleware/rateLimiter");
 const validate = require("../middleware/validate");

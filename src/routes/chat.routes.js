@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const chatController = require("../controller/chat.controller");
+const chatController = require("../controllers/chat.controller");
 const { requireAuth } = require("../middleware/auth");
 
 // POST /api/v1/chat/conversations
