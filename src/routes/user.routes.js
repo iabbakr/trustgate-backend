@@ -15,10 +15,10 @@ router.get("/nearby", requireAuth, userController.getNearbyUsers);
 // POST /api/v1/users/rate
 router.post("/rate", requireAuth, validate(schemas.submitRating), userController.submitRating);
 
-// GET  /api/v1/users/:uid
-router.get("/:uid", requireAuth, userController.getProfile);
-
-// PATCH /api/v1/users/:uid  (own profile only — enforced in controller)
+// PATCH /api/v1/users  — update own profile (no :uid param, controller uses req.user.uid)
 router.patch("/", requireAuth, validate(schemas.updateProfile), userController.updateProfile);
+
+// GET  /api/v1/users/:uid — must come AFTER specific routes to avoid conflicts
+router.get("/:uid", requireAuth, userController.getProfile);
 
 module.exports = router;
