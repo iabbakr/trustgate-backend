@@ -18,7 +18,7 @@ emailQueue.process("welcome", async (job) => {
   const { user } = job.data;
   await emailService.welcomeEmail(user);
   logger.info(`[email.job] welcome sent to ${user.email}`);
-});
+})
 
 emailQueue.process("account_approved", async (job) => {
   const { user } = job.data;
