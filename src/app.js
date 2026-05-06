@@ -24,7 +24,7 @@ const notificationRoutes = require("./routes/notification.routes");
 const adminRoutes = require("./routes/admin.routes");
 const otpRoutes = require("./routes/otp.routes");
 
-// Initialize background jobs (gracefully — don't crash if Redis is down)
+// Initialize background jobs gracefully
 try {
   require("./jobs");
 } catch (err) {
@@ -34,31 +34,65 @@ try {
 const app = express();
 const startTime = Date.now();
 
-// ── Security ─────────────────────────────────────────────────────────────────
+// ── Security ──────────────────────────────────────────────────────────────────
 app.set("trust proxy", 1);
-app.use(helmet());
+
+// ── CORS — must be FIRST, before helmet and everything else ───────────────────
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+  : [];
+
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-      : "*",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      // Allow all origins in development
+      if (process.env.NODE_ENV !== "production") return callback(null, true);
+      // In production, allow specific origins OR any origin if ALLOWED_ORIGINS is "*"
+      if (allowedOrigins.includes("*") || allowedOrigins.length === 0) {
+        return callback(null, true);
+      }
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+      "X-Requested-With",
+      "expo-platform",
+    ],
+    exposedHeaders: ["X-Total-Count"],
+    maxAge: 86400, // 24h preflight cache
+  })
+);
+
+// Handle OPTIONS preflight for all routes
+app.options("*", cors());
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: false,
   })
 );
 
 // ── Body parsing ──────────────────────────────────────────────────────────────
-// Paystack webhook needs raw body for HMAC verification
 app.use("/payments/webhook", express.raw({ type: "application/json" }));
 app.use("/api/v1/payments/webhook", express.raw({ type: "application/json" }));
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(compression());
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 app.use(
   morgan("combined", {
     stream: { write: (msg) => logger.info(msg.trim()) },
-    skip: (req) => req.path === "/health" || req.path === "/api/v1/health",
+    skip: (req) =>
+      req.path === "/health" || req.path === "/api/v1/health",
   })
 );
 
@@ -66,34 +100,40 @@ app.use(
 app.use(globalLimiter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
-// Available at both /health and /api/v1/health so the frontend can reach either
 const healthHandler = async (req, res) => {
   const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
 
-  // Check Firebase connectivity
+  // Firebase check — just verify db is initialized (no network call)
   let firebaseOk = false;
   try {
     const { db } = require("./config/firebase");
-    // Lightweight check — just verify the db object is initialized
     firebaseOk = !!db;
   } catch {
     firebaseOk = false;
   }
 
-  // Check Redis connectivity
+  // Redis check — optional service, won't block health
   let redisOk = false;
   try {
     const { getRedisClient } = require("./config/redis");
     const client = getRedisClient();
     if (client) {
-      await client.ping();
+      // Use a short timeout so Redis doesn't block the health response
+      await Promise.race([
+        client.ping(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 1000)
+        ),
+      ]);
       redisOk = true;
     }
   } catch {
     redisOk = false;
   }
 
-  const healthy = firebaseOk; // Redis is optional
+  // App is healthy if Firebase is ok — Redis is optional
+  const healthy = firebaseOk;
+
   res.status(healthy ? 200 : 503).json({
     status: healthy ? "ok" : "degraded",
     uptime: uptimeSeconds,
@@ -129,7 +169,7 @@ v1.use("/otp", otpRoutes);
 
 app.use("/api/v1", v1);
 
-// Legacy Paystack webhook compatibility
+// Legacy Paystack webhook compat
 app.use("/payments", paymentRoutes);
 
 // ── 404 & Error ───────────────────────────────────────────────────────────────
@@ -139,8 +179,12 @@ app.use(errorHandler);
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || "5000", 10);
 app.listen(PORT, "0.0.0.0", () => {
-  logger.info(`TrustGate API running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
-  logger.info(`Health check: http://localhost:${PORT}/health`);
+  logger.info(
+    `TrustGate API running on port ${PORT} [${
+      process.env.NODE_ENV || "development"
+    }]`
+  );
+  logger.info(`Health: http://localhost:${PORT}/health`);
 });
 
 module.exports = app;

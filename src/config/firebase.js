@@ -10,12 +10,22 @@ function initFirebase() {
     return;
   }
 
+  // Render stores env vars literally — \n must be converted to real newlines
   const privateKey = process.env.FIREBASE_PRIVATE_KEY
     ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
     : undefined;
 
   if (!process.env.FIREBASE_PROJECT_ID || !privateKey) {
-    throw new Error("Firebase credentials missing. Check FIREBASE_PROJECT_ID and FIREBASE_PRIVATE_KEY.");
+    throw new Error(
+      "Firebase credentials missing. Set FIREBASE_PROJECT_ID and FIREBASE_PRIVATE_KEY in Render env vars."
+    );
+  }
+
+  // Validate key format
+  if (!privateKey.includes("BEGIN PRIVATE KEY")) {
+    throw new Error(
+      "FIREBASE_PRIVATE_KEY appears malformed. Make sure it includes the full key with BEGIN/END markers."
+    );
   }
 
   admin.initializeApp({
@@ -31,10 +41,18 @@ function initFirebase() {
   storage = admin.storage();
   auth = admin.auth();
 
-  // Firestore settings — use timestamps as Dates
   db.settings({ ignoreUndefinedProperties: true });
+
+  console.log(
+    `[Firebase] Initialized — project: ${process.env.FIREBASE_PROJECT_ID}`
+  );
 }
 
-initFirebase();
+try {
+  initFirebase();
+} catch (err) {
+  console.error("[Firebase] INIT FAILED:", err.message);
+  // Don't crash the process — health check will report degraded status
+}
 
 module.exports = { admin, db, storage, auth };

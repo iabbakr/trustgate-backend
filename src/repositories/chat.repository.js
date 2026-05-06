@@ -12,7 +12,9 @@ class ChatRepository extends BaseRepository {
   }
 
   messagesCol(convId) {
-    return db.collection(`${COLLECTIONS.CONVERSATIONS}/${convId}/${COLLECTIONS.MESSAGES}`);
+    return db.collection(
+      `${COLLECTIONS.CONVERSATIONS}/${convId}/${COLLECTIONS.MESSAGES}`
+    );
   }
 
   async getOrCreate(uid1, name1, uid2, name2, isMutual) {
@@ -34,42 +36,76 @@ class ChatRepository extends BaseRepository {
     return { id: convId, isNew: true, data: payload };
   }
 
-  async sendMessage(convId, senderId, senderName, text, imageUrl) {
+  /**
+   * Send a message with optional media attachments.
+   * Supports: text, imageUrl, videoUrl, fileUrl, fileType, fileName, mimeType
+   */
+  async sendMessage(
+    convId,
+    senderId,
+    senderName,
+    text,
+    imageUrl,
+    videoUrl,
+    fileUrl,
+    fileType,
+    fileName,
+    mimeType
+  ) {
+    // Build the last-message preview
+    let preview = text || null;
+    if (!preview && imageUrl) preview = "📷 Photo";
+    if (!preview && videoUrl) preview = "🎥 Video";
+    if (!preview && fileUrl) preview = `📎 ${fileName || "File"}`;
+
     const msg = {
       senderId,
       senderName,
       text: text || null,
       imageUrl: imageUrl || null,
+      videoUrl: videoUrl || null,
+      fileUrl: fileUrl || null,
+      fileType: fileType || null, // "image" | "video" | "file"
+      fileName: fileName || null,
+      mimeType: mimeType || null,
       createdAt: Date.now(),
     };
+
+    // Remove null fields to keep Firestore clean
+    Object.keys(msg).forEach((k) => msg[k] === null && delete msg[k]);
+
     const ref = await this.messagesCol(convId).add(msg);
+
     await this.col.doc(convId).update({
-      lastMessage: text || "📷 Image",
+      lastMessage: preview || "Message",
       lastMessageAt: msg.createdAt,
       [`unread.${senderId}`]: 0,
     });
+
     return { id: ref.id, ...msg };
   }
 
-  async getMessages(convId, limit = 100) {
+  async getMessages(convId, limitCount = 100) {
     const snap = await this.messagesCol(convId)
       .orderBy("createdAt", "desc")
-      .limit(limit)
+      .limit(limitCount)
       .get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
-  async getUserConversations(uid, limit = 50) {
+  async getUserConversations(uid, limitCount = 50) {
     const snap = await this.col
       .where("participants", "array-contains", uid)
       .orderBy("lastMessageAt", "desc")
-      .limit(limit)
+      .limit(limitCount)
       .get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
   async acceptRequest(convId) {
-    await this.col.doc(convId).update({ isRequest: false, requestAccepted: true });
+    await this.col
+      .doc(convId)
+      .update({ isRequest: false, requestAccepted: true });
   }
 
   async markRead(convId, uid) {

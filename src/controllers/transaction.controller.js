@@ -1,3 +1,4 @@
+// controllers/transaction.controller.js
 const txService = require("../services/transaction.service");
 
 async function createTransaction(req, res, next) {
@@ -13,7 +14,11 @@ async function updateTransaction(req, res, next) {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const tx = await txService.updateTransactionStatus(id, status, req.user.uid);
+    const tx = await txService.updateTransactionStatus(
+      id,
+      status,
+      req.user.uid
+    );
     res.json({ success: true, data: tx });
   } catch (err) {
     next(err);
@@ -38,4 +43,9 @@ async function getShopTransactions(req, res, next) {
   }
 }
 
-module.exports = { createTransaction, updateTransaction, getMyTransactions, getShopTransactions };
+module.exports = {
+  createTransaction,
+  updateTransaction,
+  getMyTransactions,
+  getShopTransactions,
+};
