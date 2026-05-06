@@ -24,7 +24,7 @@ function initJobs() {
   try {
     require("./email.job");
     require("./notification.job");
-    require("./trustScore.job");
+    require("./trustscore.job");
     require("./cleanup.job");
     logger.info("Background jobs initialized.");
   } catch (err) {
