@@ -1,5 +1,16 @@
+/**
+ * jobs/notification.job.js
+ *
+ * All push notification queuing lives here.
+ *
+ * New helpers:
+ *  - enqueueNotify.theftBroadcast(reporterUid, deviceLabel, area?)
+ *      Fans out theft alerts to ALL active users (or just those in an area).
+ *      Called by both transaction.service and device.service.
+ */
+
 const Bull = require("bull");
-const { sendPushNotification, createNotification } = require("../services/notification.service");
+const { createNotification } = require("../services/notification.service");
 const { NOTIFICATION_TYPES } = require("../utils/constants");
 const logger = require("../utils/logger");
 
@@ -13,7 +24,7 @@ const notificationQueue = new Bull("notification", {
   },
 });
 
-// ── Single processor handles all notification types ───────────────────────────
+// ── Processor ─────────────────────────────────────────────────────────────────
 
 notificationQueue.process("push", async (job) => {
   const { recipientId, type, title, body, data } = job.data;
@@ -22,45 +33,116 @@ notificationQueue.process("push", async (job) => {
 });
 
 notificationQueue.on("failed", (job, err) => {
-  logger.error(`[notification.job] failed (${job.data?.type}): ${err.message}`);
+  logger.error(
+    `[notification.job] failed (${job.data?.type}): ${err.message}`
+  );
 });
 
 // ── Enqueue helpers ───────────────────────────────────────────────────────────
 
 function enqueueNotification(recipientId, type, title, body, data = {}) {
-  return notificationQueue.add("push", { recipientId, type, title, body, data });
+  return notificationQueue.add("push", {
+    recipientId,
+    type,
+    title,
+    body,
+    data,
+  });
 }
 
 const enqueueNotify = {
   newMessage: (recipientId, senderName, convId) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.NEW_MESSAGE, `New message from ${senderName}`, "Tap to view", { convId, screen: "conversation" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.NEW_MESSAGE,
+      `New message from ${senderName}`,
+      "Tap to view",
+      { convId, screen: "conversation" }
+    ),
 
   messageRequest: (recipientId, senderName, convId) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.MESSAGE_REQUEST, `${senderName} wants to message you`, "Accept or decline the request", { convId, screen: "conversation" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.MESSAGE_REQUEST,
+      `${senderName} wants to message you`,
+      "Accept or decline the request",
+      { convId, screen: "conversation" }
+    ),
 
   transactionUpdate: (recipientId, status, deviceModel) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.TRANSACTION_UPDATE, "Transaction Update", `${deviceModel} marked as ${status}`, { screen: "transactions" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.TRANSACTION_UPDATE,
+      "Transaction Update",
+      `${deviceModel} marked as ${status}`,
+      { screen: "transactions" }
+    ),
 
   kycApproved: (recipientId) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.KYC_APPROVED, "KYC Verification Approved 🎉", "You are now a verified TrustGate dealer", { screen: "kyc" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.KYC_APPROVED,
+      "KYC Verification Approved 🎉",
+      "You are now a verified TrustGate dealer",
+      { screen: "kyc" }
+    ),
 
   kycRejected: (recipientId) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.KYC_REJECTED, "KYC Verification Update", "Please resubmit your documents", { screen: "kyc" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.KYC_REJECTED,
+      "KYC Verification Update",
+      "Please resubmit your documents",
+      { screen: "kyc" }
+    ),
 
   accountApproved: (recipientId) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.ACCOUNT_APPROVED, "Account Approved ✅", "Welcome to TrustGate! You can now start trading.", { screen: "home" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.ACCOUNT_APPROVED,
+      "Account Approved ✅",
+      "Welcome to TrustGate! You can now start trading.",
+      { screen: "home" }
+    ),
 
   accountBanned: (recipientId) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.ACCOUNT_BANNED, "Account Banned", "Your account has been permanently banned.", {}),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.ACCOUNT_BANNED,
+      "Account Banned",
+      "Your account has been permanently banned.",
+      {}
+    ),
 
   newFollower: (recipientId, followerName) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.NEW_FOLLOWER, `${followerName} started following you`, "View their profile", { screen: "profile" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.NEW_FOLLOWER,
+      `${followerName} started following you`,
+      "View their profile",
+      { screen: "profile" }
+    ),
 
-  theftAlert: (recipientId, deviceModel) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.THEFT_ALERT, "⚠️ Theft Alert", `${deviceModel} in your area has been reported stolen`, { screen: "checker" }),
+  /**
+   * Single-recipient theft alert (direct party notification).
+   */
+  theftAlert: (recipientId, deviceLabel) =>
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.THEFT_ALERT,
+      "⚠️ Stolen Device Alert",
+      `${deviceLabel} has been reported stolen — check before buying`,
+      { screen: "checker" }
+    ),
 
   paymentSuccess: (recipientId, plan) =>
-    enqueueNotification(recipientId, NOTIFICATION_TYPES.PAYMENT_SUCCESS, "Payment Successful", `Your ${plan} subscription is now active`, { screen: "profile" }),
+    enqueueNotification(
+      recipientId,
+      NOTIFICATION_TYPES.PAYMENT_SUCCESS,
+      "Payment Successful",
+      `Your ${plan} subscription is now active`,
+      { screen: "profile" }
+    ),
 };
 
 module.exports = { notificationQueue, enqueueNotify };
